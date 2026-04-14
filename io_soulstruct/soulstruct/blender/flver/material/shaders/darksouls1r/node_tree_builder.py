@@ -68,6 +68,21 @@ class NodeTreeBuilder(PTDENodeTreeBuilder):
         if self.get_mtd_param("g_DetailBump_BumpPower", default=0) > 0:
             normal_socket = self._get_combined_normal_and_detail_socket(normal_socket)
 
+        pbr_added_node_inputs = {}
+        pbr_added_value_inputs = {}
+
+        if node_group_name == "DS1R Basic PBR":
+            # PBR supports subsurface scattering
+            pbr_added_node_inputs = {
+                #TODO: Add "g_Subsurf" as a recognized sampler and call it "Subsurface Scattering" for this
+                "Subsurface Map" : self.tex_image_nodes["Subsurface Scattering"].outputs["Color"]
+                if "Subsurface Scattering" in self.tex_image_nodes else None
+            }
+            pbr_added_value_inputs = {
+                "Subsurface Power" : self.get_mtd_param("g_SubsurfaceStrength", default=0),
+                "Subsurface Opacity": self.get_mtd_param("g_SubsurfaceTranslucency", default=0),
+            }
+
         self._build_primary_shader(
             node_group_name=node_group_name,
             node_inputs={
@@ -82,7 +97,7 @@ class NodeTreeBuilder(PTDENodeTreeBuilder):
                 "Light Map": self._get_mixed_texture_color(r"Lightmap", vc_alpha),
                 "Vertex Colors": self.vertex_colors_nodes[0].outputs["Color"],
                 "Vertex Colors Alpha": vc_alpha if self._uses_vertex_colors_alpha else None,
-            },
+            } | pbr_added_node_inputs,
             input_default_values={
                 "Diffuse Map Color": self._diffuse_map_color,
                 "Diffuse Map Color Power": self.get_mtd_param("g_DiffuseMapColorPower", default=1),
@@ -90,7 +105,7 @@ class NodeTreeBuilder(PTDENodeTreeBuilder):
                 "Specular Map Color Power": self.get_mtd_param("g_SpecularMapColorPower", default=1),
                 # Specular Power removed since PTDE.
                 "Light Map Influence": 1 if self.tex_image_nodes.get("Lightmap", None) else 0,
-            },
+            } | pbr_added_value_inputs,
         )
 
     def _build_ds1r_snow_shader(self):
